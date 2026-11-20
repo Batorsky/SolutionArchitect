@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интерактивный Квиз</title>
+    <style>
+        :root {
+            /* Базовая палитра на основе синего */
+            --primary-blue: #3D78E3;
+            --dark-blue: #2B5CB5;
+            --light-blue-bg: #F0F5FE;
+            --border-muted: #E2E8F0;
+            --text-main: #1E293B;
+            --text-muted: #64748B;
+            --bg-page: #F8FAFC;
+            
+            /* Палитра состояний квиза (как на скриншотах) */
+            --selected-border: #801C2D;   /* Бордовый при выборе (До проверки) */
+            --selected-bg: #FFF5F6;       /* Розоватый фон при выборе */
+            --success-green: #10B981;     /* Зеленый для правильного ответа */
+            --success-bg: #F0FDF4;        /* Фон правильного ответа */
+            --success-text: #14532D;      /* Темно-зеленый текст */
+            
+            --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-page);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Главная карточка "в воздухе" */
+        .quiz-card {
+            background-color: #FFFFFF;
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 760px;
+            width: 100%;
+            box-shadow: var(--shadow-card);
+            border: 1px solid var(--border-muted);
+        }
+
+        .quiz-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .quiz-title-tag {
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .quiz-meta {
+            font-size: 13px;
+            color: var(--text-muted);
+            display: flex;
+            gap: 12px;
+        }
+
+        .status-badge {
+            color: var(--success-green);
+            font-weight: 600;
+            display: none; /* Появляется только при правильном ответе */
+        }
+
+        .question-text {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.4;
+            margin-bottom: 8px;
+        }
+
+        .instruction-text {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-bottom: 24px;
+        }
+
+        /* Контейнер вариантов */
+        .options-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        /* Дефолтное состояние плашки ответа */
+        .option-item {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--border-muted);
+            border-radius: 10px;
+            padding: 16px 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background-color: #FFFFFF;
+            position: relative;
+        }
+
+        .option-item:hover:not(.disabled) {
+            border-color: var(--primary-blue);
+            background-color: var(--light-blue-bg);
+        }
+
+        /* Кастомный круглый радио-баттон */
+        .radio-circle {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #CBD5E1;
+            border-radius: 50%;
+            margin-right: 16px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .option-text {
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        /* Состояние: Вариант выбран пользователем (Бордовый стиль) */
+        .option-item.selected {
+            border-color: var(--selected-border);
+            background-color: var(--selected-bg);
+        }
+
+        .option-item.selected .radio-circle {
+            border-color: var(--selected-border);
+            background-color: var(--selected-border);
+        }
+
+        .option-item.selected .radio-circle::after {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background-color: #FFFFFF;
+            border-radius: 50%;
+        }
+
+        /* Состояние: Проверено и ответ верный (Зеленый стиль) */
+        .option-item.correct-reveal {
+            border-color: var(--success-green) !important;
+            background-color: var(--success-bg) !important;
+            color: var(--success-text);
+        }
+
+        .option-item.correct-reveal .radio-circle {
+            border-color: var(--success-green) !important;
+            background-color: var(--success-green) !important;
+        }
+
+        /* Галочка вместо точки внутри зеленого круга */
+        .option-item.correct-reveal .radio-circle::after {
+            content: '✓';
+            color: #FFFFFF;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* Заблокированное состояние после отправки */
+        .option-item.disabled {
+            cursor: not-allowed;
+        }
+
+        /* Блок управления (Кнопка) */
+        .action-row {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .submit-btn {
+            background-color: var(--selected-border);
+            color: #FFFFFF;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .submit-btn:hover {
+            opacity: 0.9;
+        }
+
+        .submit-btn:disabled {
+            display: none; /* Прячем кнопку после фиксации ответа */
+        }
+
+        /* Блок обратной связи (Правильный ответ) */
+        .feedback-box {
+            background-color: var(--success-bg);
+            border: 1px solid #A7F3D0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 24px;
+            display: none; /* Скрыт по дефолту */
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        .feedback-title {
+            color: var(--success-green);
+            font-weight: 700;
+            font-size: 15px;
+            margin-bottom: 8px;
+        }
+
+        .feedback-desc {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #334155;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="quiz-card">
+    <div class="quiz-header">
+        <div class="quiz-title-tag">Проверь себя</div>
+        <div class="quiz-meta">
+            <span>Баллы: 5</span>
+            <span class="status-badge" id="statusBadge">Верно</span>
+        </div>
+    </div>
+
+    <div class="question-text">Какой вариант правильно проводит границу платформы заказов?</div>
+    <div class="instruction-text">Выберите один вариант ответа</div>
+
+    <div class="options-list" id="optionsContainer">
+        <div class="option-item" data-correct="false">
+            <div class="radio-circle"></div>
+            <div class="option-text">Границу следует провести по месту размещения серверов компании</div>
+        </div>
+        
+        <div class="option-item" data-correct="false">
+            <div class="radio-circle"></div>
+            <div class="option-text">Складская система должна хранить полное состояние заказа, потому что она резервирует товар</div>
+        </div>
+        
+        <div class="option-item" id="targetCorrect" data-correct="true">
+            <div class="radio-circle"></div>
+            <div class="option-text">Платформа хранит состояние заказа и запрашивает резервирование, а складская система управляет остатками и выполняет резерв</div>
+        </div>
+        
+        <div class="option-item" data-correct="false">
+            <div class="radio-circle"></div>
+            <div class="option-text">Платформа должна управлять остатками, потому что без товаров заказ невозможно выполнить</div>
+        </div>
+    </div>
+
+    <div class="action-row">
+        <button class="submit-btn" id="submitBtn" disabled>Ответить</button>
+    </div>
+
+    <div class="feedback-box" id="feedbackBox">
+        <div class="feedback-title">Правильный ответ!</div>
+        <div class="feedback-desc">
+            Граница разделяет координацию заказа и фактическое управление складом. Платформа использует результат складской операции, но не присваивает себе ответственность за остатки.
+        </div>
+    </div>
+</div>
+
+<script>
+    const options = document.querySelectorAll('.option-item');
+    const submitBtn = document.getElementById('submitBtn');
+    const feedbackBox = document.getElementById('feedbackBox');
+    const statusBadge = document.getElementById('statusBadge');
+    const targetCorrect = document.getElementById('targetCorrect');
+    let isSubmitted = false;
+
+    options.forEach(option => {
+        option.addEventListener('click', () => {
+            if (isSubmitted) return;
+
+            // Снимаем выделение со всех вариантов
+            options.forEach(opt => opt.classList.remove('selected'));
+            
+            // Выделяем текущий
+            option.classList.add('selected');
+            
+            // Активируем кнопку "Ответить"
+            submitBtn.disabled = false;
+        });
+    });
+
+    submitBtn.addEventListener('click', () => {
+        isSubmitted = true;
+        submitBtn.disabled = true;
+
+        // Блокируем все опции для клика
+        options.forEach(opt => {
+            opt.classList.add('disabled');
+            opt.classList.remove('selected'); // убираем бордовый фокус
+
+        // Переводим правильный вариант в зеленый статус (как на первом скриншоте)
+        targetCorrect.classList.add('correct-reveal');
+
+        // Показываем плашку разбора и статус "Верно"
+        feedbackBox.style.display = 'block';
+        statusBadge.style.display = 'inline';
+        });
+    });

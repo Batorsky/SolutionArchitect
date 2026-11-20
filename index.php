@@ -4,7 +4,6 @@ include 'includes/header.php';
 ?>
 
 <div class="app-container">
-    <?php include 'includes/sidebar.php'; ?>
 
     <main class="main-content">
         <div class="content-container">
